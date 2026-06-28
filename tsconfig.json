@@ -11,6 +11,6 @@
     "isolatedModules": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["ui.ts", "bot.ts", "engine.ts", "engine/**/*.ts", "catalog.ts", "demo.ts", "test/**/*.ts"],
+  "include": ["ui.ts", "bot.ts", "engine.ts", "engine/**/*.ts", "catalog.ts", "demo.ts", "test/**/*.ts", "server/**/*.ts", "client/**/*.ts", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -3,31 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Colony — hotseat</title>
+    <title>Terrestria</title>
     <link rel="stylesheet" href="/ui.css" />
+    <link rel="stylesheet" href="/client/lobby.css" />
   </head>
   <body>
-    <div id="app">
-      <header id="topbar"></header>
-      <section id="objectives" class="panel"></section>
-      <main id="main">
-        <section class="col">
-          <div id="me" class="panel"></div>
-          <div id="controls" class="panel"></div>
-          <div id="hand" class="panel"></div>
-        </section>
-        <section class="col">
-          <div id="opp" class="panel"></div>
-          <div id="combat" class="panel"></div>
-          <div id="board" class="panel"></div>
-        </section>
-        <section class="col">
-          <div id="stacks" class="panel"></div>
-          <div id="log" class="panel"></div>
-        </section>
-      </main>
-      <div id="overlay" class="overlay hidden"></div>
-    </div>
-    <script type="module" src="/ui.ts"></script>
+    <!-- ===================== LANDING ===================== -->
+    <section id="screen-landing" class="screen lobby-screen">
+      <div class="lobby-card">
+        <h1 class="brand">TERRESTRIA</h1>
+        <p class="tagline">Build, ally, and wage war across the shattered fleet.</p>
+
+        <label class="field">
+          <span>Your colony name</span>
+          <input id="name-input" maxlength="24" placeholder="e.g. Io Colony" autocomplete="off" />
+        </label>
+
+        <div class="lobby-actions">
+          <button id="create-btn" class="primary big">Host a new game</button>
+        </div>
+
+        <div class="divider"><span>or join one</span></div>
+
+        <form id="join-form" class="join-row">
+          <input id="code-input" class="code-input" maxlength="6" placeholder="CODE" autocomplete="off" spellcheck="false" />
+          <button id="join-btn" class="big" type="submit">Join</button>
+        </form>
+
+        <p id="landing-error" class="error hidden"></p>
+      </div>
+    </section>
+
+    <!-- ===================== WAITING ROOM ===================== -->
+    <section id="screen-lobby" class="screen lobby-screen hidden">
+      <div class="lobby-card">
+        <h2>Game lobby</h2>
+        <div class="code-display">
+          <span class="code-label">Game code</span>
+          <div class="code-big" id="room-code">------</div>
+          <button id="copy-link" class="ghost">Copy invite link</button>
+        </div>
+        <p class="hint">Other players join at this site and enter the code above.</p>
+
+        <h3 class="players-h">Players <span id="player-count" class="pill"></span></h3>
+        <ul id="player-list" class="player-list"></ul>
+
+        <div class="lobby-actions">
+          <button id="start-btn" class="primary big hidden">Start game</button>
+          <span id="waiting-note" class="hint"></span>
+        </div>
+        <button id="leave-btn" class="ghost small">Leave game</button>
+        <p id="lobby-error" class="error hidden"></p>
+      </div>
+    </section>
+
+    <!-- ===================== GAME ===================== -->
+    <section id="screen-game" class="screen hidden">
+      <div id="app">
+        <header id="topbar"></header>
+        <section id="objectives" class="panel"></section>
+        <main id="main">
+          <section class="col">
+            <div id="me" class="panel"></div>
+            <div id="controls" class="panel"></div>
+            <div id="hand" class="panel"></div>
+          </section>
+          <section class="col">
+            <div id="opp" class="panel"></div>
+            <div id="combat" class="panel"></div>
+            <div id="board" class="panel"></div>
+          </section>
+          <section class="col">
+            <div id="stacks" class="panel"></div>
+            <div id="log" class="panel"></div>
+          </section>
+        </main>
+        <div id="overlay" class="overlay hidden"></div>
+      </div>
+    </section>
+
+    <script type="module" src="/client/main.ts"></script>
   </body>
 </html>

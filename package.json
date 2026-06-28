@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "server": "tsx server/index.ts",
+    "server:watch": "tsx watch server/index.ts",
+    "start": "npm run build && tsx server/index.ts",
     "demo": "tsx demo.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"

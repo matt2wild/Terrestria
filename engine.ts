@@ -30,4 +30,6 @@ export { scoreObjective, objectivesView, type DirectiveView } from './engine/obj
 export { DIRECTIVES } from './engine/directives.js';
 export { isAllowed, reduce } from './engine/reducer.js';
 export { viewFor } from './engine/view.js';
+export { netViewFor } from './engine/netview.js';
+export type { NetView, NetCard, NetHandCard, NetStack, NetAttack, NetPending } from './engine/netview.js';
 export { buildSupply, createGame } from './engine/setup.js';

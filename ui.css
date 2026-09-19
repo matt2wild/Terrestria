@@ -184,3 +184,22 @@ button.go { background: #14361f; border-color: var(--good); color: #cdfbe2; }
   .card { width: 100%; }
   .stack-grid { grid-template-columns: 1fr; }
 }
+
+/* Touch devices of ANY width — tablets (iPad), foldables, phones. Width alone
+   doesn't imply a mouse: an iPad in landscape is a 3-column *touch* board, so
+   key the comfortable hit targets off the pointer type, not the breakpoint. */
+@media (pointer: coarse) {
+  button { min-height: 40px; padding: 9px 13px; }
+  .stack button { min-height: 34px; padding: 7px 10px; }
+  .combat-row select, .target-pick select, .lobby-card input { min-height: 40px; }
+  .card.clickable { border-color: #3a5570; }   /* tap affordance without :hover */
+  .bat, .stack { padding-top: 7px; padding-bottom: 7px; }
+}
+
+/* Foldables spanned across a vertical hinge report two side-by-side viewport
+   segments. Don't try to cram 3 columns across the fold — use 2 and let the
+   grid gap fall near the hinge. (Whole block is ignored where unsupported, so
+   the width breakpoints above still apply.) */
+@media (horizontal-viewport-segments: 2) {
+  #main { grid-template-columns: 1fr 1fr; gap: 16px; }
+}

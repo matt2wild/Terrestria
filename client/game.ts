@@ -49,6 +49,81 @@ const costBadge = (c: ResCost | undefined, freeLabel: string): string => `<span 
 const canAct = (): boolean => !!view && view.yourTurn && !view.pending;
 const mustRespond = (): boolean => !!view?.pending?.youMustRespond;
 
+// ---- glyph vocabulary (basic shapes per card type) --------------------------
+// No art — just distinct geometric marks so a colony's formation is readable at
+// a glance: triangle=unit, shield=fortification, square=structure/enhancement,
+// bolt=battery, diamond=resource, circle=action, dashed hex=scheme, star=core.
+type GlyphKind = 'core' | 'unit' | 'fort' | 'structure' | 'battery' | 'resource' | 'operation' | 'scheme';
+const GLYPH_SVG: Record<GlyphKind, string> = {
+  unit: '<polygon points="12,3 22,21 2,21"/>',
+  fort: '<path d="M12 2 21 6 21 12 C21 17 17 21 12 22 C7 21 3 17 3 12 L3 6 Z"/>',
+  structure: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+  battery: '<polygon points="13,2 4,14 11,14 9,22 20,10 13,10"/>',
+  resource: '<polygon points="12,2 22,12 12,22 2,12"/>',
+  operation: '<circle cx="12" cy="12" r="9"/>',
+  scheme: '<polygon class="hollow" points="12,2 21,7 21,17 12,22 3,17 3,7"/>',
+  core: '<polygon points="12,1.6 14.9,8.6 22.4,9.2 16.7,14 18.5,21.4 12,17.3 5.5,21.4 7.3,14 1.6,9.2 9.1,8.6"/>',
+};
+const GLYPH_LABEL: Record<GlyphKind, string> = {
+  core: 'Core', unit: 'Unit', fort: 'Fort', structure: 'Structure',
+  battery: 'Battery', resource: 'Resource', operation: 'Action', scheme: 'Scheme',
+};
+function glyphKind(d: CardDef): GlyphKind {
+  if (d.kind === 'core') return 'core';
+  if (d.kind === 'resource') return 'resource';
+  if (d.kind === 'operation') return 'operation';
+  if (d.incubation) return 'scheme';
+  const t = (d.type || '').toLowerCase();
+  if (/(unit|mercenary|soldier|squadron|mech|marksmen|riflemen|footsoldier|grunt|transport|artillery|tank|operative)/.test(t)) return 'unit';
+  if (t.includes('fortification')) return 'fort';
+  if (d.category === 'battery' || (d.produces ?? 0) > 0) return 'battery';
+  return 'structure';
+}
+function glyphSvg(d: CardDef, size = 20): string {
+  const k = glyphKind(d);
+  return `<svg class="glyph gl-${k}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${GLYPH_SVG[k]}</svg>`;
+}
+function glyphLegend(): string {
+  const ks: GlyphKind[] = ['unit', 'fort', 'structure', 'battery', 'resource', 'operation', 'scheme', 'core'];
+  return `<span class="legend">${ks.map((k) =>
+    `<span class="lg"><svg class="glyph gl-${k}" viewBox="0 0 24 24" width="12" height="12">${GLYPH_SVG[k]}</svg>${GLYPH_LABEL[k]}</span>`).join('')}</span>`;
+}
+
+// ---- deployment grid (Vanguard / Support / Core lanes) ----------------------
+function chip(c: NetCard & { canAttack?: boolean }, mine: boolean): string {
+  const d = defOf(c.defId); if (!d) return '';
+  const k = glyphKind(d);
+  const canAtk = mine && canAct() && view!.phase === 'attack' && !!c.canAttack;
+  const selected = selectedAttackers.has(c.instId);
+  const cls = ['chip', `chip-${k}`];
+  if (c.tapped) cls.push('tapped');
+  if (!c.active) cls.push('inactive');
+  if (canAtk) cls.push('clickable');
+  if (selected) cls.push('selected');
+  const actAttr = canAtk ? ` data-act="attacker" data-id="${c.instId}"` : '';
+  const stat = d.stats ? `<span class="chip-stat">${c.attack}/${c.health}</span>` : `<span class="chip-sub">${GLYPH_LABEL[k]}</span>`;
+  let move = '';
+  if (mine && canAct() && c.lane) {
+    const to = c.lane === 'vanguard' ? 'support' : 'vanguard';
+    move = `<button class="chip-move" data-act="reposition" data-id="${c.instId}" data-lane="${to}" title="Redeploy to ${to}">${to === 'support' ? '▽' : '△'}</button>`;
+  }
+  return `<div class="${cls.join(' ')}"${actAttr} title="${esc(d.name)}">
+    <span class="chip-g">${glyphSvg(d, 22)}</span>
+    <span class="chip-main"><span class="chip-name">${esc(d.name)}</span>${stat}</span>
+    ${move}
+  </div>`;
+}
+function deployGrid(cards: (NetCard & { canAttack?: boolean })[], mine: boolean): string {
+  const lane = (key: string, label: string, list: typeof cards) =>
+    `<div class="lane lane-${key}"><span class="lane-tag">${label}</span>
+      <div class="cells">${list.map((c) => chip(c, mine)).join('') || '<span class="cell-empty">— clear —</span>'}</div></div>`;
+  return `<div class="deploy">
+    ${lane('van', '▲ VANGUARD', cards.filter((c) => c.lane === 'vanguard'))}
+    ${lane('sup', '■ SUPPORT', cards.filter((c) => c.lane === 'support'))}
+    ${lane('core', '★ CORE', cards.filter((c) => c.lane === null))}
+  </div>`;
+}
+
 // ---- card faces -------------------------------------------------------------
 function cardFace(d: CardDef, statLine: string, opts: { act?: string; id?: string; disabled?: boolean; selected?: boolean; tapped?: boolean; inactive?: boolean }): string {
   const cls = ['card'];
@@ -63,16 +138,11 @@ function cardFace(d: CardDef, statLine: string, opts: { act?: string; id?: strin
   const meta = `${d.tier ?? '–'} • ${esc(d.type)}${d.upkeep ? ` • ⚡${d.upkeep}` : ''}`;
   return `<div class="${cls.join(' ')}"${data}>
     ${cost}
-    <div class="cn">${esc(d.name)}</div>
+    <div class="cn"><span class="glyph-badge">${glyphSvg(d, 16)}</span>${esc(d.name)}</div>
     <div class="meta">${meta}</div>
     ${statLine}
     <div class="txt">${esc(d.text ?? '')}</div>
   </div>`;
-}
-function boardCardHtml(c: NetCard, opts: { act?: string; selected?: boolean } = {}): string {
-  const d = defOf(c.defId); if (!d) return '';
-  const stats = d.stats ? `<div class="stat-line">${c.attack}/${c.health}</div>` : '';
-  return cardFace(d, stats, { ...opts, id: c.instId, tapped: c.tapped, inactive: !c.active });
 }
 function handCardHtml(h: NetHandCard): string {
   const d = defOf(h.defId); if (!d) return '';
@@ -99,18 +169,20 @@ function renderTop(v: NetView): void {
 
 function renderMe(v: NetView): void {
   const p = v.you;
+  const g = (cls: string, label: string, val: number | string): string =>
+    `<span class="gauge ${cls}"><span class="gv">${val}</span><span class="gl">${label}</span></span>`;
   el('me').innerHTML = `
-    <h3>${esc(p.name)} — your colony</h3>
-    <div class="stats">
-      <span class="stat">Integrity <b>${p.integrity}</b></span>
-      <span class="stat">Loyalty <b>${p.loyalty}</b></span>
-      <span class="stat res-min">Minerals <b>${p.minerals}</b></span>
-      <span class="stat res-inf">Influence <b>${p.influence}</b></span>
-      <span class="stat">Energy <b>${p.energy}</b></span>
-      <span class="stat">Buys <b>${p.buys}</b></span>
-      <span class="stat">Storage <b>${p.storage}</b></span>
-      <span class="stat">Hand size <b>${p.handSize}</b></span>
-      <span class="stat">Scored <b>${p.scored.length}</b></span>
+    <h3>${esc(p.name)} — colony command</h3>
+    <div class="hud">
+      ${g('g-int', 'Integrity', p.integrity)}
+      ${g('g-loy', 'Loyalty', p.loyalty)}
+      ${g('g-min', 'Minerals', p.minerals)}
+      ${g('g-inf', 'Influence', p.influence)}
+      ${g('g-pow', 'Energy', p.energy)}
+      ${g('', 'Buys', p.buys)}
+      ${g('', 'Storage', p.storage)}
+      ${g('', 'Hand', p.handSize)}
+      ${g('', 'Scored', p.scored.length)}
     </div>`;
 }
 
@@ -172,28 +244,30 @@ function renderHand(v: NetView): void {
 }
 
 function renderOpp(v: NetView): void {
+  const byId: Record<string, NetCard[]> = {};
+  for (const c of v.board.theirs) (byId[c.controller] ??= []).push(c);
   const rows = v.opponents.map((o) => `
-    <div class="opp-row">
-      <h3>${esc(o.name)}</h3>
-      <div class="stats">
-        <span class="stat">Integrity <b>${o.integrity}</b></span>
-        <span class="stat">Loyalty <b>${o.loyalty}</b></span>
-        <span class="stat">Hand <b>${o.handCount}</b></span>
-        <span class="stat">Has Core <b>${o.hasCore ? 'yes' : 'NO'}</b></span>
-        <span class="stat">Scored <b>${o.scored}</b></span>
+    <div class="opp-console">
+      <div class="opp-h">
+        <span class="opp-name">${esc(o.name)}</span>
+        <span class="hud-mini">
+          <span class="g-int">◆ ${o.integrity}</span>
+          <span class="g-loy">✦ ${o.loyalty}</span>
+          <span>✋ ${o.handCount}</span>
+          <span class="${o.hasCore ? '' : 'lost'}">★ ${o.hasCore ? 'Core' : 'no Core'}</span>
+          <span>◈ ${o.scored}</span>
+        </span>
       </div>
+      ${deployGrid(byId[o.id] ?? [], false)}
     </div>`).join('');
-  el('opp').innerHTML = rows || '<div class="meta">No opponents.</div>';
+  el('opp').innerHTML = `<h3>Rival colonies</h3>${rows || '<div class="meta">No opponents.</div>'}`;
 }
 
 function renderBoard(v: NetView): void {
-  const attackPhase = canAct() && v.phase === 'attack';
-  const mine = v.board.mine.map((c) =>
-    boardCardHtml(c, attackPhase && c.canAttack ? { act: 'attacker', selected: selectedAttackers.has(c.instId) } : {})).join('');
-  const theirs = v.board.theirs.map((c) => boardCardHtml(c, {})).join('');
   el('board').innerHTML = `
-    <h3>Your board</h3><div class="cards">${mine || '<span class="meta">no permanents</span>'}</div>
-    <h3 style="margin-top:10px">Enemy boards</h3><div class="cards">${theirs || '<span class="meta">no permanents</span>'}</div>`;
+    <h3>Your formation ${glyphLegend()}</h3>
+    ${deployGrid(v.board.mine, true)}
+    ${canAct() && v.phase === 'attack' ? '<div class="meta hint-line">Front-line (Vanguard) units attack &amp; defend. Use △▽ to redeploy between lines.</div>' : ''}`;
 }
 
 function renderCombat(v: NetView): void {
@@ -313,6 +387,7 @@ function onClick(e: MouseEvent): void {
   switch (t.dataset.act) {
     case 'leave': onLeave(); break;
     case 'play': void send({ type: 'playCard', instId: t.dataset.id!, chosen: selectedOpponent ? [selectedOpponent] : undefined }); break;
+    case 'reposition': void send({ type: 'reposition', instId: t.dataset.id!, lane: t.dataset.lane as 'vanguard' | 'support' }); break;
     case 'buy': void send({ type: 'buyCard', stackKey: t.dataset.stack! }); break;
     case 'attacker': {
       const id = t.dataset.id!;

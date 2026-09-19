@@ -145,6 +145,128 @@ button.go { background: #14361f; border-color: var(--good); color: #cdfbe2; }
 .win { color: var(--good); }
 
 /* =============================================================================
+ * Colony command console — the "interface for running a space colony" layer:
+ * HUD gauges, a tactical deployment grid (Vanguard / Support / Core lanes), and
+ * geometric unit glyphs. No art; shape + color carry the type.
+ * ========================================================================== */
+#screen-game { --van: #ff7a6b; --sup: #5ec2ff; --core: #ffcf5e; }
+/* faint control-room grid behind the board */
+#app {
+  background-image:
+    linear-gradient(rgba(94,194,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(94,194,255,.035) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* console-style panel headers: mono, accent bar, hairline rule */
+.panel h3 {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  border-left: 3px solid var(--accent); padding: 2px 0 6px 9px;
+  border-bottom: 1px solid var(--edge);
+}
+
+/* glyphs ---------------------------------------------------------------------*/
+.glyph { display: inline-block; vertical-align: middle; }
+.glyph :not(.hollow) { fill: currentColor; }
+.glyph .hollow { fill: none; stroke: currentColor; stroke-width: 2; stroke-dasharray: 3 2; }
+.gl-unit { color: var(--bad); }
+.gl-fort { color: var(--accent); }
+.gl-structure { color: var(--good); }
+.gl-battery { color: var(--wild); }
+.gl-resource { color: var(--mineral); }
+.gl-operation { color: var(--influence); }
+.gl-scheme { color: var(--warn); }
+.gl-core { color: var(--core); }
+.glyph-badge { margin-right: 6px; }
+.cn { display: flex; align-items: center; }
+
+.legend { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; margin-left: auto; font-family: ui-sans-serif, system-ui; text-transform: none; letter-spacing: 0; }
+.legend .lg { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+
+/* HUD gauges -----------------------------------------------------------------*/
+.hud { display: flex; flex-wrap: wrap; gap: 6px; }
+.gauge {
+  display: flex; flex-direction: column; align-items: center; min-width: 62px;
+  padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px;
+  background: linear-gradient(180deg, var(--panel-2), #131820);
+}
+.gauge .gv { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 700; line-height: 1; }
+.gauge .gl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: 3px; }
+.gauge.g-int .gv { color: var(--good); }
+.gauge.g-loy .gv { color: var(--core); }
+.gauge.g-min .gv { color: var(--mineral); }
+.gauge.g-inf .gv { color: var(--influence); }
+.gauge.g-pow .gv { color: var(--wild); }
+
+/* deployment grid ------------------------------------------------------------*/
+.deploy { display: flex; flex-direction: column; gap: 6px; }
+.lane {
+  display: grid; grid-template-columns: 74px 1fr; align-items: stretch; gap: 8px;
+  border: 1px solid var(--edge); border-radius: 8px; padding: 6px; background: #10151d;
+}
+.lane-tag {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+  border-radius: 6px; padding: 4px; color: #06121c;
+}
+.lane-van { border-left: 3px solid var(--van); }
+.lane-sup { border-left: 3px solid var(--sup); }
+.lane-core { border-left: 3px solid var(--core); }
+.lane-van .lane-tag { background: var(--van); }
+.lane-sup .lane-tag { background: var(--sup); }
+.lane-core .lane-tag { background: var(--core); }
+.cells {
+  display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+  min-height: 46px; padding: 4px;
+  border-radius: 6px;
+  background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.cell-empty { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; align-self: center; opacity: .6; }
+
+/* unit chips (tactical tokens) */
+.chip {
+  display: flex; align-items: center; gap: 7px; position: relative;
+  min-width: 120px; max-width: 190px; padding: 6px 8px;
+  border: 1px solid var(--edge); border-left-width: 3px; border-radius: 7px; background: var(--panel-2);
+}
+.chip-unit { border-left-color: var(--bad); }
+.chip-fort { border-left-color: var(--accent); }
+.chip-structure { border-left-color: var(--good); }
+.chip-battery { border-left-color: var(--wild); }
+.chip-resource { border-left-color: var(--mineral); }
+.chip-operation { border-left-color: var(--influence); }
+.chip-scheme { border-left-color: var(--warn); }
+.chip-core { border-left-color: var(--core); }
+.chip-g { flex: none; line-height: 0; }
+.chip-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.chip-name { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip-stat { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: var(--bad); }
+.chip-sub { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.chip.clickable { cursor: pointer; }
+.chip.clickable:hover { border-color: var(--accent); }
+.chip.selected { outline: 2px solid var(--warn); }
+.chip.tapped { opacity: .5; }
+.chip.inactive { filter: grayscale(.7) brightness(.8); }
+.chip-move {
+  margin-left: auto; flex: none; padding: 2px 6px; font-size: 12px; line-height: 1;
+  border-radius: 5px; background: #0e1620; border-color: var(--edge); color: var(--muted);
+}
+.chip-move:hover { color: var(--accent); border-color: var(--accent); }
+
+/* rival colony consoles ------------------------------------------------------*/
+.opp-console { border: 1px solid var(--edge); border-radius: 9px; padding: 8px; margin-bottom: 8px; background: #10151d; }
+.opp-console + .opp-console { margin-top: 2px; }
+.opp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.opp-name { font-weight: 700; }
+.hud-mini { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+.hud-mini .g-int { color: var(--good); }
+.hud-mini .g-loy { color: var(--core); }
+.hud-mini .lost { color: var(--bad); font-weight: 700; }
+.hint-line { margin-top: 6px; }
+
+/* =============================================================================
  * Responsive / mobile — stack the 3-column board, enlarge touch targets, and
  * keep everything inside the viewport on phones. (Lobby screens are already
  * fluid via lobby.css; this section is mostly the in-game board.)

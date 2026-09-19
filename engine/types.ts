@@ -5,6 +5,12 @@ export type PlayerId = string;
 export type Phase = 'attack' | 'action' | 'buy' | 'cleanup';
 export type Tier = 'S' | 'I' | 'II' | 'III';
 
+// Deployment lanes — the strategic-placement layer. A permanent sits in the
+// front-line VANGUARD (can attack, can block, can be targeted) or the rear
+// SUPPORT line (protected: can't attack/block/be targeted — for economy,
+// enhancements, and sheltered units). See core.ts `laneOf`.
+export type Lane = 'vanguard' | 'support';
+
 // `kind` is what the rules engine branches on; `type` is the descriptive flavor
 // string straight off the card ("Unit - Human Pirates", "Fortification", …).
 //   resource  — pay to acquire, free to play, cycles to discard
@@ -64,6 +70,7 @@ export interface Inst {
   zone: 'board' | 'hand' | 'deck' | 'discard' | 'incubating';
   tapped: boolean; damage: number; active: boolean;
   summonedThisTurn: boolean;
+  pos?: { lane: Lane; slot: number };            // deployment position (permanents; core/colony have none)
   attachedTo?: string; upgrades: string[];
   granted: Keyword[];
   incubation?: { remaining: number; cadence: 'burst' | 'progressive'; payload: Effect[]; targets: PlayerId[] };
@@ -133,7 +140,8 @@ export interface SetupConfig {
 
 export type Action =
   | { type: 'startGame' }
-  | { type: 'playCard'; instId: string; chosen?: PlayerId[]; mode?: number }
+  | { type: 'playCard'; instId: string; chosen?: PlayerId[]; mode?: number; lane?: Lane }
+  | { type: 'reposition'; instId: string; lane: Lane }
   | { type: 'activate'; instId: string; triggerIndex: number; chosen?: PlayerId[]; mode?: number }
   | { type: 'buyCard'; stackKey: string }              // buy the top card of a stack (blind for actions)
   | { type: 'declareAttack'; attacks: Gate['attacks'] }

@@ -4,7 +4,7 @@
 // focused modules (effects, combat, objectives, turn).
 // =============================================================================
 import type { GameState, Ctx, Action } from './types.js';
-import { def, active, ownBoard, log, newInst, cat, PHASES } from './core.js';
+import { def, active, ownBoard, log, newInst, cat, PHASES, laneOf, laneCount } from './core.js';
 import { canAfford, payCost, chargedAtBuy } from './cost.js';
 import { hasKw } from './keywords.js';
 import { applyEffect, tickIncubation } from './effects.js';
@@ -41,9 +41,24 @@ export function reduce(s0: GameState, ctx: Ctx, a: Action): GameState {
       const staysInPlay = d.kind === 'permanent' || d.kind === 'core' || d.kind === 'colony';
       c.zone = staysInPlay ? 'board' : 'discard'; // resources & operations cycle to discard
       c.summonedThisTurn = true;
+      // deploy permanents into a lane — chosen, or defaulted by card kind
+      if (staysInPlay && d.kind !== 'core' && d.kind !== 'colony') {
+        const lane = a.lane ?? (d.stats ? 'vanguard' : 'support');
+        c.pos = { lane, slot: laneCount(s, ctx.playerId, lane) };
+      }
       for (const tr of d.triggers ?? []) if (tr.on === 'onPlay')
         for (const e of tr.effects) applyEffect(s, ctx, c, e, a.chosen, a.mode);
       log(s, `${p.id} plays ${d.name}`);
+      break;
+    }
+
+    case 'reposition': {
+      const c = s.instances[a.instId];
+      if (!c || c.controller !== ctx.playerId || c.zone !== 'board') break;
+      const d = def(c);
+      if (d.kind === 'core' || d.kind === 'colony') break; // the Core/Colony hold no lane
+      c.pos = { lane: a.lane, slot: laneCount(s, ctx.playerId, a.lane) };
+      log(s, `${p.id} redeploys ${d.name} to ${a.lane === 'vanguard' ? 'the Vanguard' : 'Support'}`);
       break;
     }
 
@@ -78,15 +93,20 @@ export function reduce(s0: GameState, ctx: Ctx, a: Action): GameState {
 
     case 'declareAttack': {
       if (s.phase !== 'attack') break;
-      const valid = a.attacks.filter((x) => { const at = s.instances[x.attackerId]; return at && at.controller === ctx.playerId && at.zone === 'board' && !at.tapped && at.active && (def(at).stats?.attack ?? 0) > 0 && !(at.summonedThisTurn && !hasKw(s, at, 'rush') && !hasKw(s, at, 'rapid')); });
-      const filtered = valid.filter((x) => !(x.target.player && inPact(s, ctx.playerId, x.target.player)));
+      // attackers must be untapped, active, own vanguard units that aren't summoning-sick
+      const valid = a.attacks.filter((x) => { const at = s.instances[x.attackerId]; return at && at.controller === ctx.playerId && at.zone === 'board' && laneOf(at) === 'vanguard' && !at.tapped && at.active && (def(at).stats?.attack ?? 0) > 0 && !(at.summonedThisTurn && !hasKw(s, at, 'rush') && !hasKw(s, at, 'rapid')); });
+      const filtered = valid.filter((x) => {
+        if (x.target.player && inPact(s, ctx.playerId, x.target.player)) return false;   // pact: can't attack a partner
+        if (x.target.instId) { const t = s.instances[x.target.instId]; if (!t || laneOf(t) !== 'vanguard') return false; } // only front-line enemies are targetable
+        return true;
+      });
       if (filtered.length) openGate(s, filtered);
       break;
     }
 
     case 'respondToAttack': {
       const g = s.pending!;
-      const legal = a.blocks.filter((b) => { const bl = s.instances[b.blockerId]; const at = s.instances[b.attackerId]; return bl && bl.controller === ctx.playerId && bl.zone === 'board' && !bl.tapped && bl.active && at && !hasKw(s, at, 'infiltrator') && !hasKw(s, at, 'ghost'); });
+      const legal = a.blocks.filter((b) => { const bl = s.instances[b.blockerId]; const at = s.instances[b.attackerId]; return bl && bl.controller === ctx.playerId && bl.zone === 'board' && laneOf(bl) === 'vanguard' && !bl.tapped && bl.active && at && !hasKw(s, at, 'infiltrator') && !hasKw(s, at, 'ghost'); });
       g.blocks[ctx.playerId] = legal;
       g.waitingOn = g.waitingOn.filter((x) => x !== ctx.playerId);
       log(s, `${ctx.playerId} responds (${legal.length} block(s))`);

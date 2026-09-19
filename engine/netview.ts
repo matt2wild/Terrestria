@@ -14,8 +14,8 @@
 // server-side, so the engine stays the single source of truth and the client is
 // a thin renderer. The reducer still re-validates every action it receives.
 // =============================================================================
-import type { GameState, PlayerId, Inst } from './types.js';
-import { def, board, ownBoard, cat, active } from './core.js';
+import type { GameState, PlayerId, Inst, Lane } from './types.js';
+import { def, board, ownBoard, cat, active, laneOf } from './core.js';
 import { eff, hasKw } from './keywords.js';
 import { canAfford, chargedAtBuy } from './cost.js';
 import { objectivesView, type DirectiveView } from './objectives.js';
@@ -24,6 +24,7 @@ export interface NetCard {
   instId: string; defId: string; controller: PlayerId;
   tapped: boolean; active: boolean; damage: number;
   attack: number; health: number;      // effective, current (health already minus damage)
+  lane: Lane | null;                    // deployment line (null for the Core)
 }
 export interface NetHandCard { instId: string; defId: string; playable: boolean; }
 export interface NetStack {
@@ -64,15 +65,16 @@ export interface NetView {
 // with attack > 0 that isn't summoning-sick (unless rush/rapid).
 function canAttack(s: GameState, i: Inst): boolean {
   const d = def(i);
+  if (laneOf(i) !== 'vanguard') return false;             // only the front line attacks
   if (i.tapped || !i.active || (d.stats?.attack ?? 0) <= 0) return false;
   if (i.summonedThisTurn && !hasKw(s, i, 'rush') && !hasKw(s, i, 'rapid')) return false;
   return true;
 }
-function canBlock(i: Inst): boolean { return !i.tapped && i.active && (def(i).stats?.health ?? 0) > 0; }
+function canBlock(i: Inst): boolean { return laneOf(i) === 'vanguard' && !i.tapped && i.active && (def(i).stats?.health ?? 0) > 0; }
 
 function netCard(s: GameState, i: Inst): NetCard {
   const e = eff(s, i);
-  return { instId: i.id, defId: i.defId, controller: i.controller, tapped: i.tapped, active: i.active, damage: i.damage, attack: e.attack, health: e.health };
+  return { instId: i.id, defId: i.defId, controller: i.controller, tapped: i.tapped, active: i.active, damage: i.damage, attack: e.attack, health: e.health, lane: laneOf(i) };
 }
 
 export function netViewFor(s: GameState, viewer: PlayerId): NetView {

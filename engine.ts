@@ -22,7 +22,7 @@
 export type * from './engine/types.js';
 
 export { rng } from './engine/rng.js';
-export { START, setCatalog, def } from './engine/core.js';
+export { START, setCatalog, def, laneOf } from './engine/core.js';
 export { chargedAtBuy, canAfford } from './engine/cost.js';
 export { hasKw, kwVal, eff } from './engine/keywords.js';
 export { applyEffect, dispatch, tickIncubation } from './engine/effects.js';

@@ -2,7 +2,7 @@
 // engine/core.ts — the shared substrate: catalog access, starting constants,
 // and the small state helpers every other module reaches for.
 // =============================================================================
-import type { GameState, PlayerId, Inst, CardDef, Catalog, Phase } from './types.js';
+import type { GameState, PlayerId, Inst, CardDef, Catalog, Phase, Lane } from './types.js';
 import { rng } from './rng.js';
 
 // Starting colony values, taken from the "Player Colony" / "Colony Core" cards.
@@ -28,3 +28,19 @@ export function newInst(s: GameState, defId: string, controller: PlayerId, zone:
   const i: Inst = { id, defId, controller, zone, tapped: false, damage: 0, active: true, summonedThisTurn: false, upgrades: [], granted: [] };
   s.instances[id] = i; return i;
 }
+
+// --- deployment lanes --------------------------------------------------------
+// Which line a permanent occupies. Explicit `pos` wins; otherwise a sensible
+// default: things with combat stats (units, fortifications) hold the VANGUARD,
+// everything else (batteries, enhancements, doctrines) sits in SUPPORT. The
+// Core / Colony are not in a lane. This default reproduces today's behavior —
+// only stats-bearing cards ever attacked or blocked — so lanes add depth
+// without changing any existing combat until a card is repositioned.
+export function laneOf(i: Inst): Lane | null {
+  const d = def(i);
+  if (d.kind === 'core' || d.kind === 'colony') return null;
+  if (i.pos) return i.pos.lane;
+  return d.stats ? 'vanguard' : 'support';
+}
+export const laneCount = (s: GameState, p: PlayerId, lane: Lane): number =>
+  ownBoard(s, p).filter((i) => laneOf(i) === lane).length;

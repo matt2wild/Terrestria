@@ -80,6 +80,22 @@
         </main>
         <div id="overlay" class="overlay hidden"></div>
       </div>
+
+      <!-- mobile-only quick-nav: always on top, collapsible to a small handle -->
+      <nav id="mobile-nav" class="mobile-nav" aria-label="Jump to section">
+        <button class="mn-toggle" data-act="nav-toggle" aria-label="Toggle quick navigation"></button>
+        <div class="mn-list">
+          <button data-act="nav" data-target="objectives">Directives</button>
+          <button data-act="nav" data-target="me">Colony</button>
+          <button data-act="nav" data-target="controls">Turn</button>
+          <button data-act="nav" data-target="hand">Hand</button>
+          <button data-act="nav" data-target="opp">Rivals</button>
+          <button data-act="nav" data-target="combat">Combat</button>
+          <button data-act="nav" data-target="board">Formation</button>
+          <button data-act="nav" data-target="stacks">Market</button>
+          <button data-act="nav" data-target="log">Log</button>
+        </div>
+      </nav>
     </section>
 
     <script type="module" src="/client/main.ts"></script>

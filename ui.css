@@ -329,3 +329,39 @@ button.go { background: #14361f; border-color: var(--good); color: #cdfbe2; }
 @media (horizontal-viewport-segments: 2) {
   #main { grid-template-columns: 1fr 1fr; gap: 16px; }
 }
+
+/* =============================================================================
+ * Mobile quick-nav — an always-on-top, collapsible rail that jumps to each
+ * section of the long single-column board. Hidden on wider screens, which use
+ * the multi-column layout and don't need it.
+ * ========================================================================== */
+.mobile-nav { display: none; }
+@media (max-width: 620px) {
+  .panel { scroll-margin-top: 60px; }   /* land below the sticky topbar when jumping */
+
+  .mobile-nav {
+    display: block; position: fixed; top: 56px; right: 6px; z-index: 45;
+    max-height: calc(100vh - 68px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .mn-toggle {
+    display: block; margin-left: auto; width: 36px; height: 36px; min-height: 36px; padding: 0;
+    font-size: 18px; line-height: 1; border-radius: 9px;
+    background: var(--accent); color: #06121c; border: none; box-shadow: 0 3px 10px rgba(0,0,0,.45);
+  }
+  .mn-toggle::after { content: '\2261'; }                              /* ≡ (collapsed → tap to open) */
+  .mobile-nav:not(.collapsed) .mn-toggle::after { content: '\00D7'; }  /* × (open → tap to collapse) */
+
+  .mn-list {
+    display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 6px;
+    border: 1px solid var(--edge); border-radius: 10px;
+    background: rgba(16, 21, 29, .93); backdrop-filter: blur(4px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .5);
+  }
+  .mobile-nav.collapsed .mn-list { display: none; }
+  .mn-list button {
+    font-family: ui-monospace, monospace; font-size: 11px; text-align: right; white-space: nowrap;
+    padding: 7px 9px; min-height: 34px; border-radius: 7px;
+    background: var(--panel-2); border: 1px solid var(--edge); color: var(--ink);
+  }
+  .mn-list button:active { background: var(--accent); color: #06121c; border-color: var(--accent); }
+}

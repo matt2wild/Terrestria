@@ -26,6 +26,10 @@ export function setupGame(opts: { send: Send; onLeave: () => void }): void {
   send = opts.send; onLeave = opts.onLeave;
   el('screen-game').addEventListener('click', onClick);
   el('screen-game').addEventListener('change', onChange);
+  // restore the mobile quick-nav's collapsed state (per-viewer convenience)
+  try {
+    if (localStorage.getItem('terrestria.nav') === '1') el('mobile-nav').classList.add('collapsed');
+  } catch { /* storage unavailable — start expanded */ }
 }
 
 // Card definitions are static; set them once the catalog has been fetched.
@@ -399,6 +403,12 @@ function onClick(e: MouseEvent): void {
     case 'confirm-blocks': confirmBlocks(); break;
     case 'take-hit': void send({ type: 'respondToAttack', blocks: [] }); break;
     case 'score': void send({ type: 'scoreObjective', flavor: t.dataset.flavor! }); break;
+    case 'nav': document.getElementById(t.dataset.target!)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+    case 'nav-toggle': {
+      const nav = el('mobile-nav'); const collapsed = nav.classList.toggle('collapsed');
+      try { localStorage.setItem('terrestria.nav', collapsed ? '1' : '0'); } catch { /* ignore */ }
+      break;
+    }
     case 'endphase': selectedAttackers.clear(); void send({ type: 'endPhase' }); break;
     case 'endturn': selectedAttackers.clear(); void send({ type: 'endTurn' }); break;
   }

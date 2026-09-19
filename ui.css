@@ -264,6 +264,26 @@ button.go:hover:not(:disabled) { box-shadow: 0 0 0 1px rgba(77, 223, 154, .5), 0
 .glyph-badge { margin-right: 6px; }
 .cn { display: flex; align-items: center; }
 
+/* ability insignia overlaid on a token's glyph -------------------------------*/
+.glyph-wrap { position: relative; display: inline-flex; line-height: 0; }
+.atags { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); display: flex; gap: 2px; pointer-events: none; }
+.atag {
+  width: 13px; height: 13px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: #080d16; border: 1px solid currentColor; box-shadow: 0 0 6px -1px currentColor;
+}
+.atag svg { display: block; }
+.atag-act { color: var(--accent); }
+.atag-loy { color: var(--core); }
+.atag-rush { color: var(--warn); }
+.atag-armor { color: var(--accent); }
+.atag-siege { color: var(--bad); }
+.atag-breach { color: var(--bad); }
+.atag-guard { color: var(--good); }
+.atag-vig { color: var(--good); }
+.atag-drop { color: var(--wild); }
+.atag-stealth { color: var(--influence); }
+.atag-hard { color: var(--good); }
+
 .legend { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; margin-left: auto; font-family: ui-sans-serif, system-ui; text-transform: none; letter-spacing: 0; }
 .legend .lg { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
 
@@ -333,7 +353,8 @@ button.go:hover:not(:disabled) { box-shadow: 0 0 0 1px rgba(77, 223, 154, .5), 0
 .chip-operation { --c: var(--influence); }
 .chip-scheme { --c: var(--warn); }
 .chip-core { --c: var(--core); }
-.chip-g { flex: none; line-height: 0; filter: drop-shadow(0 0 5px var(--c)); }
+.chip-g { flex: none; line-height: 0; }
+.chip-g svg.glyph { filter: drop-shadow(0 0 5px var(--c)); }
 .chip-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .chip-name { font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip-stat { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: #ffb3a8; }

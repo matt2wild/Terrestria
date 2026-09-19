@@ -93,6 +93,47 @@ function glyphLegend(): string {
     `<span class="lg"><svg class="glyph gl-${k}" viewBox="0 0 24 24" width="12" height="12">${GLYPH_SVG[k]}</svg>${GLYPH_LABEL[k]}</span>`).join('')}</span>`;
 }
 
+// ---- ability tags (small insignia overlaid on a card's glyph) ---------------
+// Derived from the card's keywords + rules text so notable abilities read at a
+// glance on the board tokens. Display-only; a heuristic text scan, so it errs
+// toward showing a tag.
+const ATAG_ICON: Record<string, string> = {
+  act: '<polygon points="6,4 20,12 6,20" fill="currentColor"/>',                                    // ▷ activated
+  loy: '<polygon points="12,3 20,12 15,12 15,21 9,21 9,12 4,12" fill="currentColor"/>',              // ▲ loyalty-gated
+  rush: '<path d="M3 5 L11 12 L3 19 M12 5 L20 12 L12 19" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>', // »
+  armor: '<path d="M12 2 20 5.5 20 12 C20 16.5 16.5 20.5 12 22 C7.5 20.5 4 16.5 4 12 L4 5.5 Z" fill="currentColor"/>',  // shield (filled)
+  siege: '<path d="M12 1 L14.5 9.5 L23 12 L14.5 14.5 L12 23 L9.5 14.5 L1 12 L9.5 9.5 Z" fill="currentColor"/>',        // burst
+  breach: '<path d="M2 12 H15 M10 6 L20 12 L10 18" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',       // ➜
+  guard: '<path d="M12 2 20 5.5 20 12 C20 16.5 16.5 20.5 12 22 C7.5 20.5 4 16.5 4 12 L4 5.5 Z" fill="none" stroke="currentColor" stroke-width="2.6"/>',           // shield (hollow)
+  vig: '<circle cx="12" cy="12" r="3.3" fill="currentColor"/><path d="M2 12 C6 6 18 6 22 12 C18 18 6 18 2 12 Z" fill="none" stroke="currentColor" stroke-width="2.4"/>', // eye
+  drop: '<path d="M12 3 V14 M6 9 L12 15 L18 9 M4 20 H20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',    // planetfall
+  stealth: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="4.5 3.5"/>',                                     // dashed ring
+  hard: '<circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="4.5"/>',                                                                 // thick ring
+};
+function abilityTags(d: CardDef): { k: string; label: string }[] {
+  const text = d.text || '';
+  const kws = (d.keywords || []).map((k) => (typeof k === 'string' ? k : k.kw));
+  const kw = (name: string, re: RegExp) => kws.includes(name) || re.test(text);
+  const t: { k: string; label: string }[] = [];
+  if (/ACTION\s*\(/i.test(text) || (d.triggers || []).some((tr) => tr.on === 'onActivate')) t.push({ k: 'act', label: 'Activated ability' });
+  if (/(?:^|[\s(])[0-9NX]?L\s*(?:->|:)/.test(text)) t.push({ k: 'loy', label: 'Loyalty-gated' });
+  if (kw('rush', /\brush\b|\brapid\b/i)) t.push({ k: 'rush', label: 'Rush' });
+  if (kw('armor', /\barmor\b|\bshield/i)) t.push({ k: 'armor', label: 'Armor / Shields' });
+  if (kw('siege', /\bsiege\b/i)) t.push({ k: 'siege', label: 'Siege' });
+  if (kw('breach', /\bbreach\b/i)) t.push({ k: 'breach', label: 'Breach' });
+  if (/\bforward\b|must defend/i.test(text)) t.push({ k: 'guard', label: 'Forward / Must Defend' });
+  if (/vigilance/i.test(text)) t.push({ k: 'vig', label: 'Vigilance' });
+  if (/planetfall/i.test(text)) t.push({ k: 'drop', label: 'Planetfall' });
+  if (kw('infiltrator', /infiltrator|ghost|unblockable/i) || kws.includes('ghost')) t.push({ k: 'stealth', label: 'Stealth' });
+  if (kw('hardened', /hardened/i)) t.push({ k: 'hard', label: 'Hardened' });
+  return t;
+}
+function glyphWithTags(d: CardDef, size: number): string {
+  const pips = abilityTags(d).slice(0, 4).map((t) =>
+    `<span class="atag atag-${t.k}"><svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true">${ATAG_ICON[t.k]}</svg></span>`).join('');
+  return `<span class="glyph-wrap">${glyphSvg(d, size)}${pips ? `<span class="atags">${pips}</span>` : ''}</span>`;
+}
+
 // ---- deployment grid (Vanguard / Support / Core lanes) ----------------------
 function chip(c: NetCard & { canAttack?: boolean }, mine: boolean): string {
   const d = defOf(c.defId); if (!d) return '';
@@ -111,8 +152,10 @@ function chip(c: NetCard & { canAttack?: boolean }, mine: boolean): string {
     const to = c.lane === 'vanguard' ? 'support' : 'vanguard';
     move = `<button class="chip-move" data-act="reposition" data-id="${c.instId}" data-lane="${to}" title="Redeploy to ${to}">${to === 'support' ? '▽' : '△'}</button>`;
   }
-  return `<div class="${cls.join(' ')}"${actAttr} title="${esc(d.name)}">
-    <span class="chip-g">${glyphSvg(d, 22)}</span>
+  const abil = abilityTags(d);
+  const title = abil.length ? `${d.name} — ${abil.map((a) => a.label).join(', ')}` : d.name;
+  return `<div class="${cls.join(' ')}"${actAttr} title="${esc(title)}">
+    <span class="chip-g">${glyphWithTags(d, 22)}</span>
     <span class="chip-main"><span class="chip-name">${esc(d.name)}</span>${stat}</span>
     ${move}
   </div>`;

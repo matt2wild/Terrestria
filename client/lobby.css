@@ -62,6 +62,7 @@ button.small { font-size: 12px; padding: 6px 10px; }
 button.ghost { background: transparent; }
 .pill.host { background: var(--warn); color: #2a2300; border-color: var(--warn); }
 .pill.you { background: var(--accent); color: #06121c; border-color: var(--accent); }
+.pill.cpu { background: var(--influence); color: #170a2e; border-color: var(--influence); }
 
 /* ---- networked-game additions ---- */
 #topbar .turn { padding: 2px 8px; border-radius: 999px; background: var(--edge); color: var(--ink); }

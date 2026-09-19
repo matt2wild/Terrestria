@@ -39,6 +39,9 @@ export const joinGame = (code: string, name: string) =>
 export const getRoom = (code: string) =>
   call<{ room: PublicRoom }>(`/games/${encodeURIComponent(code)}`);
 
+export const addBot = (code: string, auth: Auth) =>
+  call<{ room: PublicRoom }>(`/games/${encodeURIComponent(code)}/bot`, { method: 'POST', auth });
+
 export const startGame = (code: string, auth: Auth) =>
   call<{ room: PublicRoom }>(`/games/${encodeURIComponent(code)}/start`, { method: 'POST', auth });
 

@@ -22,6 +22,7 @@ export interface RoomPlayer {
   name: string;
   token: string;        // per-player secret; authorizes this player's actions. Never leaked to others.
   isHost: boolean;
+  isBot?: boolean;      // CPU seat — driven server-side, never by a client
   joinedAt: number;
 }
 

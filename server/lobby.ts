@@ -14,6 +14,7 @@ import {
   ConflictError, NotFoundError, ConcurrencyError,
 } from './store.js';
 import { newGame, applyAction, viewForPlayer } from './engineHandler.js';
+import { runBots } from './botDriver.js';
 import { makeCode, makeToken, makePlayerId, normalizeCode } from './codes.js';
 import { CONFIG } from './config.js';
 
@@ -25,7 +26,7 @@ export interface PublicRoom {
   code: string;
   phase: RoomPhase;
   hostId: PlayerId;
-  players: { id: PlayerId; name: string; isHost: boolean }[];
+  players: { id: PlayerId; name: string; isHost: boolean; isBot: boolean }[];
   minPlayers: number;
   maxPlayers: number;
   canStart: boolean;
@@ -81,6 +82,23 @@ export class LobbyService {
     return { room: this.toPublic(room), auth };
   }
 
+  /** Host adds a CPU seat to a lobby. The bot is driven entirely server-side. */
+  async addBot(rawCode: string, playerId: PlayerId, token: string): Promise<PublicRoom> {
+    const code = normalizeCode(rawCode);
+    const room = await this.mutate(code, (r) => {
+      this.authorize(r, playerId, token);
+      if (r.hostId !== playerId) throw new LobbyError('only the host can add a CPU player');
+      if (r.phase !== 'lobby') throw new LobbyError('the game has already started');
+      if (r.players.length >= CONFIG.maxPlayers) throw new LobbyError('this game is full');
+      const n = r.players.filter((p) => p.isBot).length + 1;
+      const name = uniqueName(`CPU ${n}`, r.players);
+      r.players.push({ id: makePlayerId(), name, token: makeToken(), isHost: false, isBot: true, joinedAt: this.now() });
+      this.touch(r);
+      return r;
+    });
+    return this.toPublic(room);
+  }
+
   async startGame(rawCode: string, playerId: PlayerId, token: string): Promise<PublicRoom> {
     const code = normalizeCode(rawCode);
     const room = await this.mutate(code, (r) => {
@@ -89,7 +107,9 @@ export class LobbyService {
       if (r.phase !== 'lobby') throw new LobbyError('the game has already started');
       if (r.players.length < CONFIG.minPlayers) throw new LobbyError(`need at least ${CONFIG.minPlayers} players to start`);
       r.game = newGame(r.code, r.players.map((p) => ({ id: p.id, name: p.name })), r.seed);
+      r.game = runBots(r.game, botPredicate(r), this.now());   // in case a bot is first to act
       r.phase = 'active';
+      if (r.game.status === 'finished') r.phase = 'finished';
       this.touch(r);
       return r;
     });
@@ -103,7 +123,10 @@ export class LobbyService {
     const room = await this.mutate(code, (r) => {
       this.authorize(r, playerId, token);
       if (r.phase !== 'active' || !r.game) throw new LobbyError('the game is not in progress');
+      const player = r.players.find((p) => p.id === playerId);
+      if (player?.isBot) throw new LobbyError('CPU seats are driven by the server');
       r.game = applyAction(r.game, playerId, action, this.now());
+      r.game = runBots(r.game, botPredicate(r), this.now());   // let any CPU seats respond / take their turn
       if (r.game.status === 'finished') r.phase = 'finished';
       this.touch(r);
       return r;
@@ -173,7 +196,7 @@ export class LobbyService {
       code: room.code,
       phase: room.phase,
       hostId: room.hostId,
-      players: room.players.map((p) => ({ id: p.id, name: p.name, isHost: p.isHost })),
+      players: room.players.map((p) => ({ id: p.id, name: p.name, isHost: p.isHost, isBot: !!p.isBot })),
       minPlayers: CONFIG.minPlayers,
       maxPlayers: CONFIG.maxPlayers,
       canStart: room.phase === 'lobby' && room.players.length >= CONFIG.minPlayers && room.players.length <= CONFIG.maxPlayers,
@@ -185,6 +208,10 @@ export class LobbyService {
 }
 
 // ---- small helpers ---------------------------------------------------------
+function botPredicate(room: Room): (pid: PlayerId) => boolean {
+  const bots = new Set(room.players.filter((p) => p.isBot).map((p) => p.id));
+  return (pid) => bots.has(pid);
+}
 function cleanName(raw: string, fallback: string): string {
   const n = (raw ?? '').trim().slice(0, 24);
   return n.length ? n : fallback;

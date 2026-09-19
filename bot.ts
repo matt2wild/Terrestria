@@ -25,18 +25,25 @@ export function resolveGates(get: Get, apply: Apply) {
 
 // Play one full turn for `pid`: attack → play resources → play affordable actions
 // → score → buy → end turn.
-export function playWholeTurn(get: Get, apply: Apply, pid: PlayerId) {
+//
+// `opts.attack === false` skips the attack phase. The server uses that for the
+// CPU opponent: attacking a HUMAN would open a combat gate that the bot's own
+// resolveGates would then answer *for the human*, stealing their block choice.
+// A non-attacking CPU still defends (the driver responds to gates aimed at it).
+export function playWholeTurn(get: Get, apply: Apply, pid: PlayerId, opts?: { attack?: boolean }) {
   let s = get();
   const foe = s.turnOrder.filter((p) => p !== pid && s.players[p].integrity > 0)[0];
 
   // ATTACK
-  const atks = Object.values(s.instances).filter((i) => i.controller === pid && i.zone === 'board'
-    && !i.tapped && i.active && (def(i).stats?.attack ?? 0) > 0);
-  if (atks.length && foe) {
-    apply(pid, { type: 'declareAttack', attacks: atks.map((a) => ({ attackerId: a.id, target: { player: foe } })) });
-    resolveGates(get, apply);
+  if (opts?.attack !== false) {
+    const atks = Object.values(s.instances).filter((i) => i.controller === pid && i.zone === 'board'
+      && !i.tapped && i.active && (def(i).stats?.attack ?? 0) > 0);
+    if (atks.length && foe) {
+      apply(pid, { type: 'declareAttack', attacks: atks.map((a) => ({ attackerId: a.id, target: { player: foe } })) });
+      resolveGates(get, apply);
+    }
+    if (get().status !== 'playing') return; // combat may have ended the game
   }
-  if (get().status !== 'playing') return; // combat may have ended the game
   apply(pid, { type: 'endPhase' }); // -> action
 
   // ACTION: resources first (free → banks resources), then affordable actions, then score.

@@ -106,6 +106,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
         const { room, auth: a } = await lobby.joinRoom(code, String(body.name ?? ''));
         return sendJson(res, 200, { room, auth: a }), true;
       }
+      if (m === 'POST' && sub === 'bot' && parts.length === 4) {
+        const { playerId, token } = auth(req, url);
+        return sendJson(res, 200, { room: await lobby.addBot(code, playerId, token) }), true;
+      }
       if (m === 'POST' && sub === 'start' && parts.length === 4) {
         const { playerId, token } = auth(req, url);
         return sendJson(res, 200, { room: await lobby.startGame(code, playerId, token) }), true;

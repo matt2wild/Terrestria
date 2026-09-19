@@ -105,18 +105,27 @@ function enterLobby(): void {
 function renderLobby(room: PublicRoom): void {
   $('player-count').textContent = `${room.players.length}/${room.maxPlayers}`;
   $('player-list').innerHTML = room.players.map((p) => {
-    const tags = [p.isHost ? '<span class="pill host">host</span>' : '', p.id === session?.auth.playerId ? '<span class="pill you">you</span>' : ''].join(' ');
+    const tags = [
+      p.isHost ? '<span class="pill host">host</span>' : '',
+      p.isBot ? '<span class="pill cpu">cpu</span>' : '',
+      p.id === session?.auth.playerId ? '<span class="pill you">you</span>' : '',
+    ].join(' ');
     return `<li><span class="pname">${escapeHtml(p.name)}</span> ${tags}</li>`;
   }).join('');
 
   const startBtn = $('start-btn') as HTMLButtonElement;
+  const botBtn = $('addbot-btn') as HTMLButtonElement;
   const note = $('waiting-note');
   if (session?.isHost) {
     startBtn.classList.remove('hidden');
     startBtn.disabled = !room.canStart;
-    note.textContent = room.canStart ? '' : `Need at least ${room.minPlayers} players to start.`;
+    const full = room.players.length >= room.maxPlayers;
+    botBtn.classList.toggle('hidden', full);
+    botBtn.disabled = full;
+    note.textContent = room.canStart ? '' : `Need at least ${room.minPlayers} players — add a CPU or wait for others.`;
   } else {
     startBtn.classList.add('hidden');
+    botBtn.classList.add('hidden');
     note.textContent = 'Waiting for the host to start the game…';
   }
 }
@@ -176,8 +185,16 @@ function wireLanding(): void {
     const i = e.target as HTMLInputElement; i.value = i.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   });
 }
+async function doAddBot(): Promise<void> {
+  if (!session) return;
+  setError('lobby-error', null);
+  try { await api.addBot(session.code, session.auth); await pollLobby(); }
+  catch (e) { if (!fatal(e)) setError('lobby-error', e instanceof Error ? e.message : 'Could not add a CPU player'); }
+}
+
 function wireLobby(): void {
   $('start-btn').addEventListener('click', () => void doStart());
+  $('addbot-btn').addEventListener('click', () => void doAddBot());
   $('leave-btn').addEventListener('click', () => { clearSession(); enterLanding(); });
   $('copy-link').addEventListener('click', async () => {
     if (!session) return;

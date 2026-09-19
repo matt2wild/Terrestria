@@ -42,7 +42,7 @@ export function reduce(s0: GameState, ctx: Ctx, a: Action): GameState {
       c.zone = staysInPlay ? 'board' : 'discard'; // resources & operations cycle to discard
       c.summonedThisTurn = true;
       for (const tr of d.triggers ?? []) if (tr.on === 'onPlay')
-        for (const e of tr.effects) applyEffect(s, ctx, c, e, a.chosen);
+        for (const e of tr.effects) applyEffect(s, ctx, c, e, a.chosen, a.mode);
       log(s, `${p.id} plays ${d.name}`);
       break;
     }
@@ -54,7 +54,7 @@ export function reduce(s0: GameState, ctx: Ctx, a: Action): GameState {
       if (!canAfford(p, tr.cost)) break;
       payCost(p, tr.cost);
       if (tr.taps) c.tapped = true;
-      for (const e of tr.effects) applyEffect(s, ctx, c, e, a.chosen);
+      for (const e of tr.effects) applyEffect(s, ctx, c, e, a.chosen, a.mode);
       log(s, `${p.id} activates ${def(c).name}`);
       break;
     }

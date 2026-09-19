@@ -40,9 +40,10 @@ const rich = (s: GameState, p: PlayerId = 'A', m = 99, i = 99): void => { s.play
 // Put `n` upkeep-free power producers on the board so upkeep-N cards don't brown out.
 const power = (s: GameState, p: PlayerId, n: number): void => { for (let k = 0; k < n; k++) newInst(s, 'battery-processor', p, 'board'); };
 // Play a card from hand; returns the new state and the instance id.
-function play(s: GameState, p: PlayerId, defId: string, chosen?: PlayerId[]): { s: GameState; id: string } {
+// `mode` selects a Choose-One option (index; default 0).
+function play(s: GameState, p: PlayerId, defId: string, chosen?: PlayerId[], mode?: number): { s: GameState; id: string } {
   const c = newInst(s, defId, p, 'hand');
-  return { s: step(s, p, { type: 'playCard', instId: c.id, chosen }), id: c.id };
+  return { s: step(s, p, { type: 'playCard', instId: c.id, chosen, mode }), id: c.id };
 }
 // Pass A → B → back to A so A refreshes (passive bonuses recompute, power is paid).
 function refreshA(s: GameState): GameState {
@@ -61,12 +62,14 @@ test('colony-drones: encoded mode gains 2 Integrity', () => {
   assert.equal(r.s.players.A.integrity, before + 2);
   assert.equal(r.s.instances[r.id].zone, 'discard');
 });
-test('colony-drones: alternate mode "Gain 1 Mineral or Influence"', { todo: true }, () => {
-  // Choose-One is not modeled — the engine always applies the first (integrity) mode.
+test('colony-drones: alternate mode "Gain 1 Mineral or Influence"', () => {
+  // Choose-One (mode 1) picks the resource option instead of the integrity option.
   let s = newGame(); rich(s, 'A', 0, 0);
   const before = wallet(s, 'A');
-  const r = play(s, 'A', 'colony-drones'); // intend: pick the resource mode
+  const intBefore = s.players.A.integrity;
+  const r = play(s, 'A', 'colony-drones', undefined, 1); // pick the resource mode
   assert.equal(wallet(r.s, 'A'), before + 1, 'should be able to choose +1 resource instead');
+  assert.equal(r.s.players.A.integrity, intBefore, 'the integrity mode must NOT also apply');
 });
 
 test('colony-aid: encoded mode gains 1 Loyalty', () => {
@@ -100,8 +103,9 @@ test('improve-relations: card is playable and cycles to discard', () => {
   const r = play(s, 'A', 'improve-relations');
   assert.equal(r.s.instances[r.id].zone, 'discard');
 });
-test('improve-relations: Choose-One should apply only ONE of draw/loyalty/buy', { todo: true }, () => {
-  // BUG/GAP: the catalog encodes BOTH drawN(1) AND loy(1); the card is "Choose One".
+test('improve-relations: Choose-One applies only ONE of draw/loyalty', () => {
+  // Was a BUG: the catalog encoded BOTH drawN(1) AND loy(1). Now it is a real Choose-One.
+  // Default mode (0) = Draw 1.
   let s = newGame(); rich(s);
   const loyBefore = s.players.A.loyalty;
   const handBefore = handCount(s, 'A');
@@ -109,6 +113,16 @@ test('improve-relations: Choose-One should apply only ONE of draw/loyalty/buy', 
   const drew = handCount(r.s, 'A') - handBefore;
   const gainedLoy = r.s.players.A.loyalty - loyBefore;
   assert.equal(drew + gainedLoy, 1, 'exactly one mode should resolve, not both');
+  assert.equal(drew, 1, 'default mode draws 1');
+  assert.equal(gainedLoy, 0, 'default mode does not also grant loyalty');
+});
+test('improve-relations: mode 1 grants Loyalty instead of drawing', () => {
+  let s = newGame(); rich(s);
+  const loyBefore = s.players.A.loyalty;
+  const handBefore = handCount(s, 'A');
+  const r = play(s, 'A', 'improve-relations', undefined, 1);
+  assert.equal(r.s.players.A.loyalty, loyBefore + 1, 'mode 1 gains 1 Loyalty');
+  assert.equal(handCount(r.s, 'A'), handBefore, 'mode 1 does not draw');
 });
 test('improve-relations: opponent may take an unchosen mode (interactive modal)', { todo: true }, () => {
   assert.ok(false, 'TODO(engine): opponent-picks-a-mode interaction + "-1 Hard cost buy" mode not modeled');
@@ -147,7 +161,7 @@ test('trade-agreement: encoded self draws 2', () => {
   const r = play(s, 'A', 'trade-agreement');
   assert.equal(handCount(r.s, 'A'), before + 2);
 });
-test('trade-agreement: the OTHER target Colony should also Draw 2', { todo: true }, () => {
+test('trade-agreement: the OTHER target Colony also Draws 2', () => {
   let s = newGame(); rich(s);
   const before = handCount(s, 'B');
   const r = play(s, 'A', 'trade-agreement', ['B']);
@@ -203,13 +217,17 @@ test('non-aggression-pact: encoded self Draws 2 and gains 1 Loyalty', () => {
   assert.equal(handCount(r.s, 'A'), before + 2);
   assert.equal(r.s.players.A.loyalty, loyA + 1);
 });
-test('non-aggression-pact: partner also Draws 2 / gains Loyalty and a binding attack-tax forms', { todo: true }, () => {
-  // The opponent benefit + the "pay 1 Loyalty & Discard 2 before attacking" tax (a
-  // temporary Pact-like restriction) are not modeled. formPact() exists but is unused here.
+test('non-aggression-pact: partner also Draws 2 and gains 1 Loyalty', () => {
   let s = newGame(); rich(s);
   const before = handCount(s, 'B');
+  const loyB = s.players.B.loyalty;
   const r = play(s, 'A', 'non-aggression-pact', ['B']);
   assert.equal(handCount(r.s, 'B'), before + 2, 'partner should draw too');
+  assert.equal(r.s.players.B.loyalty, loyB + 1, 'partner should gain Loyalty too');
+});
+test('non-aggression-pact: the binding "pay 1 Loyalty + Discard 2 before attacking" tax', { todo: true }, () => {
+  // The temporary, one-sided attack tax (a Pact-like restriction) is still not modeled.
+  assert.ok(false, 'TODO(engine): binding attack-tax restriction not modeled');
 });
 
 test('evacuate: encoded +1 Loyalty on play', () => {

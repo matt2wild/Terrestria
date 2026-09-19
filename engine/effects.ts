@@ -25,7 +25,16 @@ function targets(s: GameState, ctx: Ctx, src: Inst | null, sel: Effect['target']
 }
 
 // --- the interpreter: the single place a new verb plugs in -------------------
-export function applyEffect(s: GameState, ctx: Ctx, src: Inst | null, e: Effect, chosen?: PlayerId[]): void {
+// `mode` is the Choose-One selection (from Action.mode); it only steers a
+// top-level `chooseOne` verb and is not propagated into the chosen sub-effects.
+export function applyEffect(s: GameState, ctx: Ctx, src: Inst | null, e: Effect, chosen?: PlayerId[], mode?: number): void {
+  if (e.op === 'chooseOne') {
+    const groups = e.modes ?? [];
+    if (groups.length === 0) return;
+    const pick = Math.min(Math.max(mode ?? 0, 0), groups.length - 1);
+    for (const sub of groups[pick]) applyEffect(s, ctx, src, sub, chosen);
+    return;
+  }
   const ts = targets(s, ctx, src, e.target, chosen);
   switch (e.op) {
     case 'modifyResource': for (const p of ts) addRes(s, p as PlayerId, e.resource!, e.amount ?? 0); break;

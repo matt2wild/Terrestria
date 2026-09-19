@@ -33,6 +33,7 @@ export interface Effect {
   stat?: { attack?: number; health?: number };
   keyword?: string;
   schedule?: { delay: number; cadence: 'burst' | 'progressive'; payload: Effect[] };
+  modes?: Effect[][];                            // op 'chooseOne': the player picks one group by Action.mode index
 }
 export interface Trigger { on: string; taps?: boolean; cost?: ResCost; effects: Effect[]; }
 
@@ -132,8 +133,8 @@ export interface SetupConfig {
 
 export type Action =
   | { type: 'startGame' }
-  | { type: 'playCard'; instId: string; chosen?: PlayerId[] }
-  | { type: 'activate'; instId: string; triggerIndex: number; chosen?: PlayerId[] }
+  | { type: 'playCard'; instId: string; chosen?: PlayerId[]; mode?: number }
+  | { type: 'activate'; instId: string; triggerIndex: number; chosen?: PlayerId[]; mode?: number }
   | { type: 'buyCard'; stackKey: string }              // buy the top card of a stack (blind for actions)
   | { type: 'declareAttack'; attacks: Gate['attacks'] }
   | { type: 'respondToAttack'; blocks: { blockerId: string; attackerId: string }[] }

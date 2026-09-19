@@ -27,7 +27,7 @@
 // =============================================================================
 import type { CardDef, Effect, Trigger, SetupConfig } from './engine.js';
 
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 
 // --- terse effect builders ---------------------------------------------------
 const onPlay = (...effects: Effect[]): Trigger => ({ on: 'onPlay', effects });
@@ -37,7 +37,10 @@ const loy = (amount: number): Effect => ({ op: 'modifyLoyalty', target: { scope:
 const oppLoy = (amount: number): Effect => ({ op: 'modifyLoyalty', target: { scope: 'allOpponents' }, amount });
 const tgtLoy = (amount: number): Effect => ({ op: 'modifyLoyalty', target: { scope: 'targetPlayer' }, amount });
 const drawN = (amount: number): Effect => ({ op: 'drawCards', target: { scope: 'self' }, amount });
+const tgtDraw = (amount: number): Effect => ({ op: 'drawCards', target: { scope: 'targetPlayer' }, amount });
 const hitColony = (amount: number): Effect => ({ op: 'modifyIntegrity', target: { scope: 'targetPlayer' }, amount });
+// Choose One: the player selects one effect-group via Action.mode (index; default 0).
+const chooseOne = (...modes: Effect[][]): Effect => ({ op: 'chooseOne', target: { scope: 'self' }, modes });
 
 export const CARDS: CardDef[] = [
   // =========================================================================
@@ -52,7 +55,7 @@ export const CARDS: CardDef[] = [
   { id: 'core-amplifier', name: 'Core Amplifier', kind: 'permanent', category: 'founder', type: 'Battery', produces: 1, handBonus: 1,
     text: 'Plus 1 Power. Plus 1 Handsize. This card can only be gained by collapsing another Colony.' },
   { id: 'colony-drones', name: 'Colony Drones', kind: 'operation', category: 'founder', type: 'Operation',
-    triggers: [onPlay(integ(2))], text: 'Choose One: Gain 2 Integrity. Gain 1 Mineral or Influence.' },
+    triggers: [onPlay(chooseOne([integ(2)], [gain('minerals', 1)]))], text: 'Choose One: Gain 2 Integrity. Gain 1 Mineral or Influence.' },
   { id: 'colony-aid', name: 'Colony Aid', kind: 'operation', category: 'founder', type: 'Operation',
     triggers: [onPlay(loy(1))], text: 'Choose One: Gain 1 Loyalty. Pay 1 Loyalty, Waste 1.' },
   { id: 'battery-processor', name: 'Battery Processor', kind: 'permanent', category: 'battery', type: 'Battery', produces: 1,
@@ -86,13 +89,13 @@ export const CARDS: CardDef[] = [
   { id: 'peaceful-protests', name: 'Peaceful Protests', kind: 'operation', category: 'diplomacy', type: 'Counter Operation', tier: 'I', cost: { influence: 1, wild: 1 },
     triggers: [onPlay(loy(1))], text: 'Expend up to 1 Unit or Fortification. +1 Loyalty. After attackers are declared, cancel the attack of 1 attacking unit. The owner of that unit loses 1 Loyalty.' },
   { id: 'improve-relations', name: 'Improve Relations', kind: 'operation', category: 'diplomacy', type: 'Operation', tier: 'I', cost: { influence: 1, wild: 1 },
-    triggers: [onPlay(drawN(1), loy(1))], text: 'Choose One (an opponent may pick an unchosen option; if they do, you resolve the final one): Draw 1. Gain 1 Loyalty. Buy a card with -1 (Hard) Resource cost.' },
+    triggers: [onPlay(chooseOne([drawN(1)], [loy(1)]))], text: 'Choose One (an opponent may pick an unchosen option; if they do, you resolve the final one): Draw 1. Gain 1 Loyalty. Buy a card with -1 (Hard) Resource cost.' },
   { id: 'propaganda', name: 'Propaganda', kind: 'operation', category: 'diplomacy', type: 'Operation', tier: 'I', cost: { influence: 1, wild: 1 },
     triggers: [onPlay(gain('influence', 1), tgtLoy(1))], text: 'Target Colony gains 1 Loyalty. Plus 1 Influence.' },
   { id: 'priority-briefings', name: 'Priority Briefings', kind: 'permanent', category: 'diplomacy', type: 'Enhancement', tier: 'I', cost: { influence: 1, wild: 2 },
     text: 'You may look at the top card of your deck at any time. ACTION (2): Draw a card.' },
   { id: 'trade-agreement', name: 'Trade Agreement', kind: 'operation', category: 'diplomacy', type: 'Operation', tier: 'I', cost: { influence: 1, wild: 2 },
-    triggers: [onPlay(drawN(2))], text: 'Both you and another target Colony Draw 2.' },
+    triggers: [onPlay(drawN(2), tgtDraw(2))], text: 'Both you and another target Colony Draw 2.' },
   { id: 'impassioned-speakers', name: 'Impassioned Speakers', kind: 'permanent', category: 'covert', type: 'Unit - Human Operatives', tier: 'I', cost: { influence: 1, wild: 3 }, upkeep: 1, stats: { attack: 1, health: 3 },
     text: 'When you Defend, each opposing Colony loses 1 Loyalty.' },
   { id: 'infrastructure-projects', name: 'Infrastructure Projects', kind: 'permanent', category: 'diplomacy', type: 'Enhancement', tier: 'I', cost: { influence: 2, wild: 2 }, upkeep: 1, buyBonus: 1,
@@ -100,7 +103,7 @@ export const CARDS: CardDef[] = [
   { id: 'diplomatic-corps', name: 'Diplomatic Corps', kind: 'permanent', category: 'diplomacy', type: 'Enhancement', tier: 'I', cost: { influence: 2, wild: 2 }, upkeep: 1, stats: { attack: 0, health: 3 },
     text: 'When you gain Loyalty, you may spend 1 Influence to get that amount plus one instead. ACTION (3): Draw 2, Discard 1.' },
   { id: 'non-aggression-pact', name: 'Non-Aggression Pact', kind: 'operation', category: 'diplomacy', type: 'Operation', tier: 'I', cost: { influence: 3, wild: 1 },
-    triggers: [onPlay(drawN(2), loy(1))], text: 'Both you and another Colony Draw 2 and gain 1 Loyalty. Until your next turn, both Colonies must pay 1 Loyalty and Discard 2 before declaring an attack towards the other.' },
+    triggers: [onPlay(drawN(2), loy(1), tgtDraw(2), tgtLoy(1))], text: 'Both you and another Colony Draw 2 and gain 1 Loyalty. Until your next turn, both Colonies must pay 1 Loyalty and Discard 2 before declaring an attack towards the other.' },
   { id: 'evacuate', name: 'Evacuate', kind: 'operation', category: 'covert', type: 'Counter Operation', tier: 'II', cost: { influence: 1, wild: 4 },
     triggers: [onPlay(loy(1))], text: 'Gain 1 Loyalty, you may Waste a card from your hand. Use during the Assault Phase: Disable target Unit; if it was in combat, remove it from that Combat.' },
   { id: 'a-new-start', name: 'A New Start', kind: 'operation', category: 'diplomacy', type: 'Operation', tier: 'II', cost: { influence: 3, wild: 2 },

@@ -17,8 +17,9 @@ So the gaps are concrete, here is the complete implemented surface.
 **Effect verbs** (`engine/effects.ts → applyEffect`): `modifyResource` (minerals /
 influence / energy / loyalty), `modifyLoyalty`, `modifyIntegrity` (with Dispossession
 check), `modifyStat` (instant heal/damage only — adjusts the `damage` rider, never base
-stats), `drawCards`, `destroyPermanent`, `grantKeyword`, `formPact`, `scheduleEffect`
-(incubation).
+stats), `drawCards` (self **or** `targetPlayer`), `destroyPermanent`, `grantKeyword`,
+`formPact`, `scheduleEffect` (incubation), `chooseOne` (**Choose-One / modal** — the
+player picks one effect-group via `Action.mode`; nested groups resolve normally).
 
 **Trigger events that actually fire**: `onPlay` (reducer), `onActivate` (reducer, with a
 **ResCost** cost and optional `taps`), `onDestroy` (`destroy`), `whileInPlay` (read only
@@ -45,7 +46,7 @@ sub-steps exposed to cards, and no "Durability" stat distinct from health.
 
 | # | Missing mechanic | Why it's missing | Cards affected (sample) |
 |---|---|---|---|
-| 1 | **Choose-One / modal effects** | reducer applies *all* `onPlay` effects; no mode selection | colony-drones, colony-aid, improve-relations, protective-services, triple-point, symbol-of-unity |
+| 1 | ~~**Choose-One / modal effects**~~ **(basic form now modeled — `chooseOne` verb + `Action.mode`)** | player-picked single-mode works; still missing: opponent-picks-a-mode interaction, and modes that need an unbuilt sub-verb (Waste, Disable) | ✅ colony-drones, improve-relations · still blocked: colony-aid, protective-services, triple-point, symbol-of-unity |
 | 2 | **`ACTION (n)` power-cost activated abilities** | none encoded; and `onActivate.cost` is `ResCost` with **no energy field**, so a power cost can't even be expressed | priority-briefings, infrastructure-projects, diplomatic-corps, trade-posts, avion-bike-squadron, a25-roman-prime, redrock-overloaders, carbon-tank, courier-network, sectorwide-expansion, symbol-of-unity |
 | 3 | **Loyalty-threshold modes (`NL ->`)** | no concept of gating/spending Loyalty for a card ability | protectorate-colony, planetary-unification, colony-of-progress, scythian-footsoldiers, salvaged-apc, kinetic-riflemen, scythian-grenadiers, orbital-relay-network, redrock-despoilers, world-dominion, starhawk, radar-tower, resource-silos, capacitor-bay, kinetic-artillery, a25-roman-prime |
 | 4 | **Discard effect** | no `discard` verb | diplomatic-corps, breaking-relations, non-aggression-pact, redrock-grunts, trade-posts |
@@ -64,7 +65,7 @@ sub-steps exposed to cards, and no "Durability" stat distinct from health.
 | 17 | **Phase-specific triggers (start of Buy Phase, before Defenders)** | only Refresh dispatches; phase changes dispatch nothing | hired-thieves, infrastructure-projects, colony-trenches, courier-network |
 | 18 | **Buy-cost modifiers** (cost-less, waivers, dynamic) | `buyCard` always charges the printed cost; no modifier layer | infrastructure-projects, courier-network, docking-bay, capacitor-bay, improve-relations, manpower |
 | 19 | **One-shot `+Buy` from an operation** | `buys` is set at Refresh from `buyBonus` only; no verb touches it | lucky-find |
-| 20 | **Opponent-targeted draw** | `drawCards` supports `targetPlayer`, but these cards encode `self` only | trade-agreement, non-aggression-pact, trade-posts |
+| 20 | ~~**Opponent-targeted draw**~~ **(now modeled — `tgtDraw` builder)** | ✅ trade-agreement & non-aggression-pact now draw for the target too; trade-posts still needs its `ACTION (1)` shared draw (#2) | ✅ trade-agreement, non-aggression-pact · still: trade-posts |
 | 21 | **Disable** (tap/deactivate as an effect) | `tapped`/`active` exist but no verb sets them | evacuate, triple-point, redrock-overloaders, scythian-assassins |
 | 22 | **Reveal hand** | no info-reveal verb | redrock-grunts |
 | 23 | **Scout / deck peek / blind-buy look** | no info-zone manipulation | priority-briefings, radar-tower, orbital-relay-network, capacitor-bay |
@@ -84,21 +85,21 @@ the engine ignores (covered by a `todo` test).
 ### Founder operations
 | Card | Modeled | Gap (systemic #) |
 |---|---|---|
-| colony-drones | `+2 Integrity` | resource mode (1) |
+| colony-drones | `+2 Integrity` **+ Choose-One resource mode ✅** | — *(modal now modeled)* |
 | colony-aid | `+1 Loyalty` | "Pay 1 Loyalty, Waste 1" mode (1, 5) |
 
 ### Diplomacy / Covert
 | Card | Modeled | Gap |
 |---|---|---|
 | peaceful-protests | `+1 Loyalty` | Expend (6), Counter timing (8), cancel attack, attacker −Loyalty |
-| improve-relations | playable | **encodes both draw+loyalty; should be Choose-One** (1); opponent-picks mode; "−1 Hard cost buy" (18) |
+| improve-relations | **Choose-One: Draw 1 / Gain 1 Loyalty ✅** (double-apply bug fixed) | opponent-picks mode; "−1 Hard cost buy" (18) |
 | propaganda | `+1 Influence`, target `+1 Loyalty` | — *(targets opponent by default; pass `chosen` for self)* |
 | priority-briefings | enters play | deck peek (23), `ACTION (2)` draw (2) |
-| trade-agreement | self `Draw 2` | partner `Draw 2` (20) |
+| trade-agreement | self `Draw 2` **+ partner `Draw 2` ✅** | — *(fully modeled)* |
 | impassioned-speakers | 1/3 unit, upkeep | `onDefend` opponent −Loyalty (16) |
 | infrastructure-projects | `+1 Buy` | `ACTION (1)` buy-cost reduction (2, 18) |
 | diplomatic-corps | 0/3 enhancement | Loyalty-gain replacement (16), `ACTION (3)` draw/discard (2, 4) |
-| non-aggression-pact | self `Draw 2`, `+1 Loyalty` | partner benefit (20), binding attack-tax (8) |
+| non-aggression-pact | self `Draw 2`, `+1 Loyalty` **+ partner `Draw 2`/`+1 Loyalty` ✅** | binding attack-tax (8) |
 | evacuate | `+1 Loyalty` | Waste (5), Disable (21), combat removal, Counter (8) |
 | a-new-start | `+1 Loyalty`, opponents `−1` | — *(fully modeled)* |
 | indoctrination | `+2 Influence`, target `+2 Loyalty` | — |
@@ -176,15 +177,18 @@ These need no engine work — their tests should all pass green:
 `carbon-hull`, `avion-hovertank`, `satellite-comms`, `solar-power-grid`,
 `battery-unit`, `fusion-reactor`.
 
-## 5. Note on `improve-relations` (a current encoding bug, not just a gap)
+## 5. Note on `improve-relations` (encoding bug — **FIXED**)
 
-Its catalog entry runs `onPlay(drawN(1), loy(1))` — applying **both** halves — but the
-card is "**Choose One**: Draw 1 / Gain 1 Loyalty / buy at −1". Today playing it gives a
-free card *and* loyalty. The `todo` test pins the intended "exactly one mode" behavior.
+Its catalog entry used to run `onPlay(drawN(1), loy(1))` — applying **both** halves — but
+the card is "**Choose One**: Draw 1 / Gain 1 Loyalty / buy at −1". It now uses
+`onPlay(chooseOne([drawN(1)], [loy(1)]))`, so exactly one mode resolves (default mode 0 =
+Draw 1; `Action.mode: 1` = Gain 1 Loyalty). Still unmodeled: the "an opponent may pick an
+unchosen option" interaction and the "buy at −1 Hard" mode (#18).
 
 ## 6. Suggested build order (highest leverage first)
 
-1. **Choose-One / modal effects** (#1) and **Discard** (#4) — small, unblock the most cards.
+1. ~~**Choose-One / modal effects** (#1)~~ **DONE (basic form)** — `chooseOne` verb +
+   `Action.mode`; opponent-picks-a-mode still open. **Discard** (#4) next — small, unblocks many cards.
 2. **`ACTION (n)` activated abilities** (#2) — needs an `energy` field on `onActivate.cost`
    (or a dedicated power cost); unblocks ~11 cards.
 3. **Loyalty-threshold modes** (#3) — the single biggest unlock (~16 cards); design the

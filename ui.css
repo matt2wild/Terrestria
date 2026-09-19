@@ -139,3 +139,48 @@ button.go { background: #14361f; border-color: var(--good); color: #cdfbe2; }
 .overlay p { color: var(--muted); margin: 0 0 18px; }
 .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--edge); font-size: 11px; color: var(--muted); }
 .win { color: var(--good); }
+
+/* =============================================================================
+ * Responsive / mobile — stack the 3-column board, enlarge touch targets, and
+ * keep everything inside the viewport on phones. (Lobby screens are already
+ * fluid via lobby.css; this section is mostly the in-game board.)
+ * ========================================================================== */
+.col { min-width: 0; }                 /* let grid tracks shrink instead of overflowing */
+.card .cn, .card .txt { overflow-wrap: anywhere; }
+
+/* tablets / small laptops: two columns */
+@media (max-width: 900px) {
+  #main { grid-template-columns: 1fr 1fr; }
+}
+
+/* phones: single column + comfortable touch targets */
+@media (max-width: 620px) {
+  html { -webkit-text-size-adjust: 100%; }
+  #app { padding: 8px; }
+  #main { grid-template-columns: 1fr; gap: 8px; }
+
+  /* keep turn / phase / resources visible while scrolling the long board */
+  #topbar { position: sticky; top: 0; z-index: 20; gap: 8px 12px; padding: 8px 10px; margin-bottom: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+
+  /* larger, thumb-friendly buttons */
+  button { padding: 9px 13px; font-size: 14px; min-height: 40px; }
+  .stack button { padding: 7px 10px; font-size: 12px; min-height: 34px; }
+
+  /* hand / board cards flow two per row and stay readable */
+  .cards { gap: 6px; }
+  .card { width: calc(50% - 3px); font-size: 12.5px; }
+  .card .txt { max-height: 120px; }
+
+  /* directives full width; shorter log so it doesn't own the scroll */
+  .dirs { grid-template-columns: 1fr; }
+  #log .loglines { max-height: 170px; }
+
+  /* modal stays inside the screen */
+  .overlay .card-box { max-width: calc(100vw - 32px); padding: 22px 18px; }
+}
+
+/* very small phones: one card / one stack per row */
+@media (max-width: 380px) {
+  .card { width: 100%; }
+  .stack-grid { grid-template-columns: 1fr; }
+}

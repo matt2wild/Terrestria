@@ -11,7 +11,7 @@ import type { CardDef, Action } from '../engine.js';
 import type { PublicRoom, Auth } from '../server/lobby.js';
 import * as api from './api.js';
 import { ApiError } from './api.js';
-import { setupGame, setGameCatalog, renderGame, resetGameSelection } from './game.js';
+import { setupGame, setGameCatalog, renderGame, resetGameSelection, setSystemUpdater } from './game.js';
 
 interface Session { code: string; auth: Auth; isHost: boolean; name: string; }
 
@@ -204,6 +204,20 @@ function wireLobby(): void {
   });
 }
 
+// Lazy-load the Three.js system view only when the viewport is big enough, so
+// phones/short screens never download it.
+function setupSystemView(): void {
+  const mq = window.matchMedia('(min-width: 1000px) and (min-height: 760px)');
+  let loaded = false;
+  const load = (): void => {
+    if (loaded || !mq.matches) return;
+    loaded = true;
+    import('./system.js').then((m) => { setSystemUpdater(m.updateSystem); m.initSystem(); }).catch(() => { /* WebGL/module unavailable — skip */ });
+  };
+  mq.addEventListener?.('change', load);
+  load();
+}
+
 async function resume(): Promise<void> {
   if (!session) { enterLanding(); return; }
   try {
@@ -215,6 +229,7 @@ async function resume(): Promise<void> {
 async function boot(): Promise<void> {
   wireLanding(); wireLobby();
   setupGame({ send: sendAction, onLeave: leaveGame }); // bind handlers once
+  setupSystemView();                                   // ambient 3D system view (wide screens only)
   try {
     const cat = await api.getCatalog();
     catalog = new Map(cat.cards.map((c) => [c.id, c]));

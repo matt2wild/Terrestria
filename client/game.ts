@@ -14,6 +14,11 @@ import type { Auth } from '../server/lobby.js';
 
 type Send = (action: Action) => void | Promise<void>;
 
+// Optional hook for the ambient 3D system view. It's lazy-loaded (Three.js) only
+// on wide screens, so game.ts never statically pulls it into the main bundle.
+let systemUpdater: ((v: NetView) => void) | null = null;
+export function setSystemUpdater(fn: (v: NetView) => void): void { systemUpdater = fn; }
+
 let catalog = new Map<string, CardDef>();
 let view: NetView | null = null;
 let send: Send = () => {};
@@ -395,6 +400,7 @@ export function renderGame(v: NetView): void {
   if (!selectedOpponent || !v.opponents.some((o) => o.id === selectedOpponent)) selectedOpponent = v.opponents[0]?.id ?? null;
   renderTop(v); renderObjectives(v); renderMe(v); renderControls(v); renderHand(v);
   renderOpp(v); renderCombat(v); renderBoard(v); renderStacks(v); renderLog(v);
+  systemUpdater?.(v);
   if (v.status === 'finished') {
     const youWon = v.winner === v.viewerId;
     setOverlay(`<div class="card-box"><h1 class="win">${youWon ? 'You win! 🏆' : `${esc(v.winnerName ?? 'Someone')} wins`}</h1>
